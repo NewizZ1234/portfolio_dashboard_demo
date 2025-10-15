@@ -8,17 +8,22 @@ def create_percentage_difference_chart_improved(portfolio_data):
     current_date = datetime.now().date()
     current_date_str = current_date.strftime('%Y-%m-%d')
     
-    # Import Streamlit only when needed
+    # Initialize log collection
+    chart_logs = []
+    chart_logs.append(f"📅 Current date: {current_date_str}")
+    chart_logs.append("")
+    chart_logs.append("🔍 DEBUG: Starting percentage chart with actual data")
+    chart_logs.append("")
+    
+    # Import Streamlit only when needed for fallback
     try:
         import streamlit as st
-        st.write(f"📅 Current date: {current_date_str}")
     except ImportError:
         # Fallback for testing without Streamlit
         class MockST:
-            def write(self, text): print(text)
-            def error(self, text): print(f"ERROR: {text}")
+            def write(self, text): pass  # Don't print, just collect in logs
+            def error(self, text): chart_logs.append(f"ERROR: {text}")
         st = MockST()
-        print(f"📅 Current date: {current_date_str}")
     
     fig = go.Figure()
     
@@ -39,7 +44,7 @@ def create_percentage_difference_chart_improved(portfolio_data):
         data = portfolio_data.get(name)
         if data is not None and not data.empty:
             try:
-                st.write(f"🔍 Processing {name}")
+                chart_logs.append(f"🔍 Processing {name}")
                 
                 # Sort data by date to ensure chronological order
                 data = data.sort_values('Date').copy()
@@ -53,7 +58,7 @@ def create_percentage_difference_chart_improved(portfolio_data):
                     baseline_date_str = "2025-10-13"
                     baseline_label = "Oct 13, 2025"
                 
-                st.write(f"🔍 {name} baseline: {baseline_label}")
+                chart_logs.append(f"🔍 {name} baseline: {baseline_label}")
                 
                 # Find baseline price from actual 2025 data
                 baseline_price = None
@@ -63,12 +68,12 @@ def create_percentage_difference_chart_improved(portfolio_data):
                 
                 if not baseline_matches.empty:
                     baseline_price = baseline_matches['Close'].iloc[0]
-                    st.write(f"✅ Found baseline price from {baseline_date_str}: ${baseline_price:.2f}")
+                    chart_logs.append(f"✅ Found baseline price from {baseline_date_str}: ${baseline_price:.2f}")
                 else:
                     # Use most recent available price as baseline
                     baseline_price = data['Close'].iloc[-1]
                     latest_date = data['Date'].iloc[-1].strftime('%Y-%m-%d')
-                    st.write(f"⚠️ Using latest available price from {latest_date}: ${baseline_price:.2f}")
+                    chart_logs.append(f"⚠️ Using latest available price from {latest_date}: ${baseline_price:.2f}")
                 
                 # Generate forecast data for future dates
                 # Import calculate_forecast function
@@ -154,7 +159,7 @@ def create_percentage_difference_chart_improved(portfolio_data):
                         else:
                             # Use latest available data if specific date not found
                             target_price = data['Close'].iloc[-1]
-                            st.write(f"⚠️ {name}: Using latest price for {date_str}")
+                            chart_logs.append(f"⚠️ {name}: Using latest price for {date_str}")
                         
                         # Calculate percentage change from baseline
                         pct_change = ((target_price - baseline_price) / baseline_price) * 100
@@ -164,18 +169,18 @@ def create_percentage_difference_chart_improved(portfolio_data):
                             if date_str == baseline_date_str:  # Oct 14 for DELTA
                                 pct_change = 0.0  # Force baseline to 0%
                                 data_type = "baseline"
-                                st.write(f"✅ {name}: {date_str} = 0.0% (baseline)")
+                                chart_logs.append(f"✅ {name}: {date_str} = 0.0% (baseline)")
                             else:
                                 data_type = "current" if date_str == current_date_str else "historical"
-                                st.write(f"📊 {name}: {date_str} = {pct_change:.2f}% (actual {data_type})")
+                                chart_logs.append(f"📊 {name}: {date_str} = {pct_change:.2f}% (actual {data_type})")
                         else:  # Other portfolios
                             if date_str == baseline_date_str:  # Oct 13 for others
                                 pct_change = 0.0  # Force baseline to 0%
                                 data_type = "baseline"
-                                st.write(f"✅ {name}: {date_str} = 0.0% (baseline)")
+                                chart_logs.append(f"✅ {name}: {date_str} = 0.0% (baseline)")
                             else:
                                 data_type = "current" if date_str == current_date_str else "historical"
-                                st.write(f"📊 {name}: {date_str} = {pct_change:.2f}% (actual {data_type})")
+                                chart_logs.append(f"📊 {name}: {date_str} = {pct_change:.2f}% (actual {data_type})")
                     
                     else:  # Future dates (tomorrow onwards) - Use forecast
                         # Calculate days from the day after current date
@@ -186,13 +191,13 @@ def create_percentage_difference_chart_improved(portfolio_data):
                             forecast_price = forecast_prices[days_from_next_day]
                             pct_change = ((forecast_price - baseline_price) / baseline_price) * 100
                             data_type = "forecast"
-                            st.write(f"📈 {name}: {date_str} = {pct_change:.2f}% (forecast)")
+                            chart_logs.append(f"📈 {name}: {date_str} = {pct_change:.2f}% (forecast)")
                         else:
                             # Fallback forecast calculation
                             days_from_baseline = (date - pd.to_datetime(baseline_date_str)).days
                             pct_change = days_from_baseline * 0.1  # Simple linear trend
                             data_type = "forecast_fallback"
-                            st.write(f"📈 {name}: {date_str} = {pct_change:.2f}% (fallback forecast)")
+                            chart_logs.append(f"📈 {name}: {date_str} = {pct_change:.2f}% (fallback forecast)")
                     
                     # Add to chart data
                     chart_plot_dates.append(date)
@@ -253,12 +258,13 @@ def create_percentage_difference_chart_improved(portfolio_data):
                         )
                     
                     chart_data_count += 1
-                    st.write(f"✅ Added {name} with {len(historical_dates)} actual + {len(forecast_chart_dates)} forecast points")
-                    
+                    chart_logs.append(f"✅ Added {name} with {len(historical_dates)} actual + {len(forecast_chart_dates)} forecast points")
+                
             except Exception as e:
                 st.error(f"❌ Error processing {name}: {str(e)}")
-    
-    if chart_data_count == 0:
+                chart_logs.append(f"❌ Error processing {name}: {str(e)}")
+                
+        chart_logs.append("")  # Add spacing between portfolios    if chart_data_count == 0:
         fig.add_annotation(
             text="No data available for percentage comparison",
             xref="paper", yref="paper",
@@ -321,5 +327,5 @@ def create_percentage_difference_chart_improved(portfolio_data):
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
     
-    st.write(f"🔍 Chart completed with {chart_data_count} portfolios using actual + forecast data")
-    return fig
+    chart_logs.append(f"🔍 Chart completed with {chart_data_count} portfolios using actual + forecast data")
+    return fig, chart_logs

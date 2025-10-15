@@ -592,6 +592,10 @@ def main():
     
     # Main content
     with st.spinner("🔍 Loading REAL market data only..."):
+        # Create a container for logs that will be updated
+        log_container = st.empty()
+        logs = []
+        
         # Fetch data for all portfolios
         portfolio_data = {}
         data_status = {}
@@ -600,32 +604,48 @@ def main():
         for idx, (name, info) in enumerate(PORTFOLIOS.items()):
             progress_bar.progress((idx + 1) / len(PORTFOLIOS))
             
-            st.write(f"🔍 Fetching real data for {name} ({info['symbol']})...")
+            # Add log entry
+            fetch_log = f"🔍 Fetching real data for {name} ({info['symbol']})..."
+            logs.append(fetch_log)
+            
             data = fetch_stock_data(info['symbol'], start_date, end_date)
             
             if data is not None and not data.empty:
                 portfolio_data[name] = data
                 data_status[name] = f"✅ {len(data)} days"
+                success_log = f"✅ Real data loaded for {info['symbol']}: {len(data)} days"
             else:
                 portfolio_data[name] = None
                 data_status[name] = "❌ No real data"
+                success_log = f"❌ Failed to load data for {info['symbol']}"
+            
+            logs.append(success_log)
+            logs.append("")  # Empty line for spacing
             
             time.sleep(0.1)  # Small delay to show progress
         
         progress_bar.empty()
         
-        # Show data availability status
-        st.subheader("📊 Real Data Availability")
-        status_cols = st.columns(4)
-        for idx, (name, info) in enumerate(PORTFOLIOS.items()):
-            with status_cols[idx]:
+        # Create fixed log window with scroll
+        with st.expander("📋 Data Loading Logs", expanded=False):
+            # Add availability summary to logs
+            logs.append("📊 Real Data Availability")
+            for name, info in PORTFOLIOS.items():
                 status = data_status[name]
-                if "✅" in status:
-                    st.success(f"**{info['badge']}** {name}\n{status}")
-                else:
-                    st.error(f"**{info['badge']}** {name}\n{status}")
+                badge = info['badge']
+                logs.append(f"{badge} {name} {status}")
+            
+            # Count available data
+            available_portfolios = sum(1 for data in portfolio_data.values() if data is not None)
+            logs.append("")
+            logs.append(f"📈 {available_portfolios}/{len(PORTFOLIOS)} portfolios have real data available")
+            logs.append("")
+            logs.append("📈 Portfolio Performance vs Baseline (Oct 13/14, 2025)")
+            
+            # Store logs for later use with chart logs
+            self_logs = logs.copy()
         
-        # Count available data
+        # Count available data for error handling
         available_portfolios = sum(1 for data in portfolio_data.values() if data is not None)
         
         if available_portfolios == 0:
@@ -643,12 +663,61 @@ def main():
             - Verify internet connection
             """)
             return
-        
-        st.success(f"📈 {available_portfolios}/{len(PORTFOLIOS)} portfolios have real data available")
     
     # Add percentage difference chart (full width)
     st.subheader("📈 Portfolio Performance vs Baseline (Oct 13/14, 2025)")
-    pct_chart = create_percentage_difference_chart_improved(portfolio_data)
+    
+    # Get the chart and its logs
+    chart_result = create_percentage_difference_chart_improved(portfolio_data)
+    if isinstance(chart_result, tuple):
+        pct_chart, chart_logs = chart_result
+        
+        # Display complete logs in expandable container
+        with st.expander("📋 Complete Processing Logs", expanded=False):
+            # Combine all logs
+            all_logs = self_logs + chart_logs
+            combined_log_text = "\n".join(all_logs)
+            st.markdown(f"""
+            <div style="
+                background: #1a1a1a;
+                border: 1px solid #333333;
+                border-radius: 8px;
+                padding: 15px;
+                max-height: 400px;
+                overflow-y: auto;
+                font-family: 'Courier New', monospace;
+                font-size: 14px;
+                line-height: 1.5;
+                white-space: pre-line;
+                color: #ffffff;
+            ">
+{combined_log_text}
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        pct_chart = chart_result
+        
+        # Display basic logs if chart function doesn't return logs
+        with st.expander("📋 Data Loading Logs", expanded=False):
+            log_text = "\n".join(self_logs)
+            st.markdown(f"""
+            <div style="
+                background: #1a1a1a;
+                border: 1px solid #333333;
+                border-radius: 8px;
+                padding: 15px;
+                max-height: 400px;
+                overflow-y: auto;
+                font-family: 'Courier New', monospace;
+                font-size: 14px;
+                line-height: 1.5;
+                white-space: pre-line;
+                color: #ffffff;
+            ">
+{log_text}
+            </div>
+            """, unsafe_allow_html=True)
+        
     if pct_chart:
         st.plotly_chart(pct_chart, use_container_width=True)
     
