@@ -131,11 +131,8 @@ def create_percentage_difference_chart_improved(portfolio_data):
                 
                 forecast_dates, forecast_prices = calculate_forecast_local(data, days_ahead=30)
                 
-                # Create dynamic date range: baseline date to 30 days ahead
-                if name == "Blnm":  # DELTA
-                    start_date = "2025-10-13"  # Show one day before DELTA baseline
-                else:  # Others
-                    start_date = baseline_date_str  # Start from baseline
+                # Create dynamic date range: always start from Oct 13 (earliest baseline)
+                start_date = "2025-10-13"  # Always start from Oct 13 (baseline date)
                 
                 # End date: 30 days from current date
                 end_date = (current_date + pd.Timedelta(days=30)).strftime('%Y-%m-%d')
@@ -166,7 +163,11 @@ def create_percentage_difference_chart_improved(portfolio_data):
                         
                         # Determine data type and apply special baseline rules
                         if name == "Blnm":  # DELTA special handling
-                            if date_str == baseline_date_str:  # Oct 14 for DELTA
+                            if date_str == "2025-10-13":  # Competition start date
+                                pct_change = 0.0  # Force competition start to 0%
+                                data_type = "competition_start"
+                                chart_logs.append(f"✅ {name}: {date_str} = 0.0% (competition start)")
+                            elif date_str == baseline_date_str:  # Oct 14 for DELTA baseline
                                 pct_change = 0.0  # Force baseline to 0%
                                 data_type = "baseline"
                                 chart_logs.append(f"✅ {name}: {date_str} = 0.0% (baseline)")
@@ -213,7 +214,7 @@ def create_percentage_difference_chart_improved(portfolio_data):
                     forecast_chart_pct = []
                     
                     for i, (date, pct, dtype) in enumerate(zip(chart_plot_dates, chart_plot_pct, chart_data_types)):
-                        if dtype in ["baseline", "historical", "current", "chart_start"]:
+                        if dtype in ["baseline", "historical", "current", "chart_start", "competition_start"]:
                             historical_dates.append(date)
                             historical_pct.append(pct)
                         else:  # forecast types
@@ -294,8 +295,8 @@ def create_percentage_difference_chart_improved(portfolio_data):
             yanchor="bottom"
         )
     
-    # Calculate dynamic x-axis range
-    start_display = (current_date - pd.Timedelta(days=2)).strftime('%Y-%m-%d')
+    # Calculate x-axis range starting from baseline date (Oct 13, 2025)
+    start_display = "2025-10-13"  # Start from baseline date
     end_display = (current_date + pd.Timedelta(days=30)).strftime('%Y-%m-%d')
     
     fig.update_layout(
@@ -310,17 +311,21 @@ def create_percentage_difference_chart_improved(portfolio_data):
             range=[start_display, end_display],
             tickformat='%b %d'
         ),
-        height=400,
+        height=450,  # Increased height to accommodate horizontal legend below
         showlegend=True,
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
         font=dict(family="Inter, sans-serif"),
         legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01,
-            bgcolor="rgba(255,255,255,0.8)"
+            orientation="h",  # Horizontal legend
+            yanchor="bottom",
+            y=-0.2,  # Position below the chart
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(255,255,255,0.9)",
+            bordercolor="rgba(128,128,128,0.3)",
+            borderwidth=1,
+            font=dict(size=10, color="#1f2937")  # Dark color for light background
         )
     )
     
