@@ -265,14 +265,10 @@ def create_percentage_difference_chart_improved(portfolio_data):
                 st.error(f"❌ Error processing {name}: {str(e)}")
                 chart_logs.append(f"❌ Error processing {name}: {str(e)}")
                 
-        chart_logs.append("")  # Add spacing between portfolios    if chart_data_count == 0:
-        fig.add_annotation(
-            text="No data available for percentage comparison",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, xanchor='center', yanchor='middle',
-            showarrow=False,
-            font=dict(size=16)
-        )
+        chart_logs.append("")  # Add spacing between portfolios
+    
+    if chart_data_count == 0:
+        chart_logs.append("⚠️ No portfolio data available for chart display")
     else:
         # Add zero line
         fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.7, 
